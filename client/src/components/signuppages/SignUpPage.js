@@ -1,258 +1,254 @@
 import React, { useState } from 'react';
-import { 
-  auth,
-  createUserWithEmailAndPassword,
-  signInWithPopup ,
-  updateProfile,
-  GoogleAuthProvider
- } from '../../firebase';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGoogle, faApple } from '@fortawesome/free-brands-svg-icons';
+import { FcGoogle } from 'react-icons/fc'; 
+import { auth } from '../../firebaseConfig'; 
 import { useNavigate } from 'react-router-dom';
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
+  createUserWithEmailAndPassword
+} from 'firebase/auth';
+import { Alert, AlertDescription } from '../custom-components/custom-components';
 
-const SignUpPage = () => {
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    dobMonth: '',
-    dobDay: '',
-    dobYear: '',
-  });
 
+const SignupPage = () => {
+  const navigate =useNavigate(); 
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
+  const [loading, setLoading] = useState('');
   const [error, setError] = useState('');
-  const navigate = useNavigate();
-  const googleProvider = new GoogleAuthProvider();
+  const [success, setSuccess] = useState(false);
 
-  const handleGoogleSignIn = async () => {
+  const handleEmailSignup = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
+      // create user in firebase
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
 
 
-      // Extract name parts from Google Display name
-
-      const nameParts = user.displayName?.split(' ') || ['', ''];
-      const firstName = nameParts[0];
-      const lastName = nameParts[nameParts.length - 1];
-
-      // send user data to backend
-      await fetch('http://localhost:8080/api/user-profile', {
+      // get firebase token
+      const token = await userCredential.user.getIdToken();
+      // send user data to server
+      const response = await fetch('http://localhost:8080/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await user.getIdToken()}`,
+          'Authorization': token
         },
+
         body: JSON.stringify({
-          firstName,
-          lastName,
-          email: user.email,
-        }),
+          email,
+          name,
+          username,
+          provider: 'email'
+        })
       });
-      navigate('/dashboard');
-    } catch (error) {
-      setError(error.message);
+
+      if (!response.ok) {
+        throw new Error('Signup failed');
+      }
+      setSuccess(true);
+      navigate('/dashboard'); 
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleGoogleSignup = async () => {
+    setLoading(true);
     setError('');
 
     try {
-      // Create user with email and password
-      const userCredential = await createUserWithEmailAndPassword(
-        auth, 
-        formData.email,
-        formData.password
-      );
-      // Update profile with display name
-      await updateProfile(userCredential.user, {
-        displayName: `${formData.firstName} ${formData.lastName}`,
-      });
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const token = await result.user.getIdToken();
 
-      // Send additional user data to your server
-
-
-      await fetch('http://localhost:8080/api/user-profile', {
+      const response = await fetch('http://localhost:8080/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await userCredential.user.getIdToken()}`,
+          'Authorization': token
         },
         body: JSON.stringify({
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          dob: {
-            month: parseInt(formData.dobMonth, 10),
-            day: parseInt(formData.dobDay, 10),
-            year: parseInt(formData.dobYear, 10),
-          },
+          email: result.user.email,
+          name: result.user.displayName,
+          username: result.user.displayName.replace(/\s/g, ''),
+          provider: 'google',
         }),
       });
 
+
+      if (!response.ok) {
+        throw new Error('Signup failed');
+      }
+      setSuccess(true);
       navigate('/dashboard');
-    } catch (error) {
-      setError(error.message);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-3xl font-bold text-center mb-6 text-blue-600">Join LearnHub.</h1>
-        <h2 className="text-3xl font-bold text-center mb-6 text-black">Learn. Connect. Collaborate.</h2>
-
-        <div className="space-y-4 mb-6">
-          <button
-            onClick={handleGoogleSignIn}
-              className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition duration-150 ease-in-out"
-              >
-                <FontAwesomeIcon icon={faGoogle} style={{ color: '#DB4437' }} className="h-5 w-5 mr-2" />
-                Continue with Google
-              </button>    
-        </div>
-
-        <div className="relative mb-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">Or continue with</span>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex space-x-4">
-            <div className="flex-1">
-              <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">First Name</label>
-              <input 
-                type="text"
-                id="firstName"
-                name="firstName"
-                value={formData.firstName}
-                onChange={handleChange}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                required
-              />
-            </div>
-            <div className="flex-1">
-              <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">Last Name</label>
-              <input 
-                type="text"
-                id="lastName"
-                name="lastName"
-                value={formData.lastName}
-                onChange={handleChange}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
-            <input 
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
-            <input 
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
-            <div className="flex space-x-2">
-              <select
-                name="dobMonth"
-                value={formData.dobMonth}
-                onChange={handleChange}
-                className="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                required
-              >
-                <option value="">Month</option>
-                {Array.from({ length: 12 }, (_, i) => (
-                  <option key={i} value={i + 1}>{new Date(0, i).toLocaleString('default', { month: 'long' })}</option>
-                ))}
-              </select>
-
-              <select
-                name="dobDay"
-                value={formData.dobDay}
-                onChange={handleChange}
-                className="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                required
-              >
-                <option value="">Day</option>
-                {/* Day options */}
-                {Array.from({ length: 31 }, (_, i) => (
-                  <option key={i} value={i + 1}>{i + 1}</option>
-                ))}
-              </select>
-
-              <select
-                name="dobYear"
-                value={formData.dobYear}
-                onChange={handleChange}
-                className="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                required
-              >
-                <option value="">Year</option>
-                {/* Year options */}
-                {Array.from({ length: 100 }, (_, i) => (
-                  <option key={i} value={2023 - i}>{2023 - i}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-            <button
-              type="submit"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out"
-            >
-              Sign Up
-            </button>
-          </form>
-        
-
-        <p className="mt-4 text-xs text-gray-500 text-center">
-          Your name and photo are displayed to users who invite you to a workspace using your email.
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <h1 className="text-center text-4xl font-bold text-black mb-2">
+          Learn. Connect. Collaborate.
+        </h1>
+        <p className="text-center text-gray-600 text-lg mb-8">
+          Learning never ends. Join our Community.
         </p>
-        <p className="mt-4 text-xs text-gray-500 text-center">
-          By signing up, you agree to out Terms of Service and Privacy Policy.
-        </p>
+        <h2 className="text-center text-3xl font-bold text-gray-900">
+          Create your Account
+        </h2>
       </div>
-      <div className="mt-4">
-        <select className="text-sm text-gray-500 bg-transparent">
-          <option>English</option>
-          {/* Add other language options here */}
-        </select>
+
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-8 px-4 shadow-lg sm:rounded-xl sm:px-10 border border-gray-100">
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {success && (
+            <Alert className="mb-4">
+              <AlertDescription>
+                Account created successfully!
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="mb-6">
+            <button 
+              onClick={handleGoogleSignup}
+              disabled={loading}
+              className="w-full flex items-center justify-center py-2.5 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+            >
+              <FcGoogle className="h-5 w-5 mr-2" />
+              Continue with Google
+            </button>
+          </div>
+
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">
+                Or sign up with email
+              </span>
+            </div>
+          </div>
+
+          <form onSubmit={handleEmailSignup} className="space-y-6">
+            <div>
+              <label 
+                htmlFor="name"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Name
+              </label>
+              <div className="mt-1">
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg  shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />  
+              </div>
+            </div>
+
+
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+               Create a Username
+              </label>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="appearance-none block w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+
+            <div>
+            <label 
+               htmlFor="email"
+               className="block text-sm font-medium text-gray-700"
+              >
+                Email address
+              </label>
+              <div className="mt-1">
+                <input 
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400"
+                />
+              </div>
+            </div>
+
+
+            <div>
+              <label 
+               htmlFor="password"
+               className="block text-sm font-medium text-gray-700"
+            >
+              Password
+            </label>
+            <div className="mt-1">
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            </div>
+
+
+            <div>
+              <button 
+                type="submit"
+                disabled={loading}
+                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors duration-200"
+              >
+
+                {loading ? 'Creating account...' : 'Create account'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
 };
 
-export default SignUpPage;
+export default SignupPage;

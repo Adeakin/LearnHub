@@ -1,31 +1,25 @@
-import { initializeApp } from 'firebase/app';
-import { 
-  getAuth,
-  signInWithPopup,
-  GoogleAuthProvider,
-  createUserWithEmailAndPassword,
-  updateProfile 
-} from 'firebase/auth';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBUX8J6huZEovXGgAClrjmoeAs_DoVCHGQ",
-  authDomain: "learnhub-4b1aa.firebaseapp.com",
-  projectId: "learnhub-4b1aa",
-  storageBucket: "learnhub-4b1aa.appspot.com",
-  messagingSenderId: "334725354818",
-  appId: "1:334725354818:web:e1977fc6dd5803c3be24db"
-
+  apiKey: "AIzaSyDLtenrAemyYuufFFAHNGVAfyPVrC4rgH4",
+  authDomain: "learnhub7-f2e2e.firebaseapp.com",
+  projectId: "learnhub7-f2e2e",
+  storageBucket: "learnhub7-f2e2e.appspot.com",
+  messagingSenderId: "505339151614",
+  appId: "1:505339151614:web:26f3bb73b5abe0be5011af",
+  measurementId: "G-KCKCQ56B8E"
 };
 
-// Initialize Firebase
-  
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
 
-  export {
-    auth,
-    signInWithPopup,
-    GoogleAuthProvider,
-    createUserWithEmailAndPassword,
-    updateProfile
-  };
+let app;
+if (getApps().length === 0) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApp(); 
+}
+
+const auth = getAuth(app);
+
+export { app, auth };
